@@ -11,6 +11,10 @@ productRoutes.get('/all-unique', (req, res) => {
 productRoutes.get('/all-pack', (req, res) => {
     productRepository.selectAllPack(req, res);
  });
+
+ productRoutes.post('/bulk-update', (req, res) => {
+   productRepository.bulkUpdateCSV(req, res);
+});
  
 
 export { productRoutes };
