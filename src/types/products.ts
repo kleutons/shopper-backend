@@ -13,3 +13,7 @@ export type TypeProductCSV = {
   code: number;
   new_price: number;
 };
+
+export interface TypeProductNewPrice extends TypeProduct {
+  new_price: number;
+}

@@ -15,9 +15,9 @@ productRoutes.get('/list-pack', (req, res) => {
     productRepository.listPack(req, res);
  });
 
-productRoutes.post('/list', (req, res) => {
-   productRepository.listById(req, res);
-});
+// productRoutes.post('/list', (req, res) => {
+//    productRepository.listById(req, res);
+// });
 
 productRoutes.post('/bulk-update',
                   multerConfig.single("file"),

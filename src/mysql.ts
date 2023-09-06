@@ -9,10 +9,15 @@ const pool = mysql.createPool({
     "port": 3306
 })
 
-export function handleDatabaseError(err: NodeJS.ErrnoException | null, res: Response) {
+export function handleDatabaseError(err: NodeJS.ErrnoException | null, res?: Response) {
     if (err) {
         console.error(err);
-        return res.status(500).json({ error: 'Erro ao obter conexão do pool.' });
+        if(res){
+            return res.status(500).json({ error: 'Erro ao obter conexão do pool.' });
+        }else{
+            console.error({ error: 'Erro ao obter conexão do pool.' });
+            return;
+        }
     }
 }
 
