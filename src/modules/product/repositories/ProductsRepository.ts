@@ -1,7 +1,8 @@
 import { Request, Response } from 'express';
 import { handleDatabaseError, pool } from '../../../mysql';
-import { IdProductsRequest } from '../../../types/products';
-import { PoolConnection, QueryError, FieldPacket } from 'mysql2';
+import { IdProductsRequest, TypeProduct } from '../../../types/products';
+import { PoolConnection, QueryError, FieldPacket, RowDataPacket } from 'mysql2';
+import { converDBValuesToNumbers } from '../../../utils/utils';
 
 class ProductRepository {
     listUnique(req: Request<{}, {}, IdProductsRequest>, res: Response) {
@@ -12,7 +13,7 @@ class ProductRepository {
             const query = 'SELECT * FROM products WHERE code NOT IN (SELECT DISTINCT pack_id FROM packs)';
 
             connection!.query(query,
-                (errorQuery:  QueryError | null, resultQuery: any, filedsQuery: FieldPacket[]) => {
+                (errorQuery:  QueryError | null, resultQuery: RowDataPacket[], filedsQuery: FieldPacket[]) => {
                     //encerrar connection 
                     connection!.release();
                     
@@ -20,7 +21,8 @@ class ProductRepository {
                         console.log(errorQuery);
                         return res.status(400).json({error: 'Erro ao consultar base de dados!'});
                     }
-                    res.status(200).json(resultQuery);
+                    const products: TypeProduct[] = resultQuery.map(converDBValuesToNumbers);
+                    res.status(200).json(products);
                 }
             )
         })
@@ -43,7 +45,8 @@ class ProductRepository {
                         console.log(errorQuery);
                         return res.status(400).json({error: 'Erro ao consultar base de dados!'});
                     }
-                    res.status(200).json(resultQuery);
+                    const products: TypeProduct[] = resultQuery.map(converDBValuesToNumbers);
+                    res.status(200).json(products);
                 }
             )
         })
@@ -52,15 +55,10 @@ class ProductRepository {
     listById(req: Request, res: Response) {
     
         const { id } = req.body;
-
         var idsArray = id.split(',');
-
-        
         for (var i = 0; i < idsArray.length; i++) {
             idsArray[i] = parseInt(idsArray[i].trim());
         }
-
-        // res.status(200).json(idsArray);
 
         pool.getConnection((err:NodeJS.ErrnoException | null, connection: PoolConnection | undefined) =>{
             //Retorna se tiver erro ao conectar na poll
@@ -71,7 +69,7 @@ class ProductRepository {
             connection!.query( 
                 query,
                 [idsArray],
-                (errorQuery:  QueryError | null, resultQuery: any, filedsQuery: FieldPacket[]) => {
+                (errorQuery:  QueryError | null, resultQuery: RowDataPacket[], filedsQuery: FieldPacket[]) => {
                     //encerrar connection 
                     connection!.release();
                     
@@ -79,7 +77,9 @@ class ProductRepository {
                         console.log(errorQuery);
                         return res.status(400).json({error: 'Erro ao consultar base de dados!'});
                     }
-                    res.status(200).json(resultQuery);
+                    
+                    const products: TypeProduct[] = resultQuery.map(converDBValuesToNumbers);
+                    res.status(200).json(products);
                 }
             )
         })
