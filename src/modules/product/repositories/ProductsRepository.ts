@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { pool } from '../../../mysql';
 
 class ProductRepository {
-    selectAllUnique(req: Request, res: Response) {
+    listUnique(req: Request, res: Response) {
 
         pool.getConnection((err:any, connection: any) =>{
             connection.query( 
@@ -22,7 +22,7 @@ class ProductRepository {
         })
     }
     
-    selectAllPack(req: Request, res: Response) {
+    listPack(req: Request, res: Response) {
         pool.getConnection((err:any, connection: any) =>{
             connection.query( 
                 'SELECT * FROM products WHERE code IN (SELECT DISTINCT pack_id FROM packs)',
@@ -39,6 +39,11 @@ class ProductRepository {
                 }
             )
         })
+    }
+
+    listById(req: Request, res: Response) {
+    
+        res.status(200).json(req.body)
     }
 
     bulkUpdateCSV(req: Request, res: Response) {

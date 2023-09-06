@@ -1,7 +1,10 @@
 import express from 'express';
+const bodyParser = require('body-parser');
 import { productRoutes } from './routes/product.routes';
 
 const app = express();
+
+app.use(bodyParser.json());
 
 app.use((req, res, next) => {
     // Permite acesso de qualquer origem (não seguro somente para produção)
@@ -14,6 +17,7 @@ app.use((req, res, next) => {
 app.get('/', (req, res) => {
     res.send("Servidor Iniciado com sucesso!");
 });
+
 
 app.use('/product', productRoutes);
 

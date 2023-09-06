@@ -4,15 +4,19 @@ import { ProductRepository } from "../modules/product/repositories/ProductsRepos
 const productRoutes = Router();
 const productRepository = new ProductRepository();
 
-productRoutes.get('/all-unique', (req, res) => {
-   productRepository.selectAllUnique(req, res);
+productRoutes.get('/list-unique', (req, res) => {
+   productRepository.listUnique(req, res);
 });
 
-productRoutes.get('/all-pack', (req, res) => {
-    productRepository.selectAllPack(req, res);
+productRoutes.get('/list-pack', (req, res) => {
+    productRepository.listPack(req, res);
  });
 
- productRoutes.post('/bulk-update', (req, res) => {
+productRoutes.post('/list', (req, res) => {
+   productRepository.listById(req, res);
+});
+
+productRoutes.post('/bulk-update', (req, res) => {
    productRepository.bulkUpdateCSV(req, res);
 });
  
