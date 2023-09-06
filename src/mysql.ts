@@ -1,4 +1,5 @@
-import mysql from 'mysql';
+import mysql from 'mysql2';
+import { Response } from 'express';
 
 const pool = mysql.createPool({
     "user": "root",
@@ -7,5 +8,12 @@ const pool = mysql.createPool({
     "host": "localhost",
     "port": 3306
 })
+
+export function handleDatabaseError(err: NodeJS.ErrnoException | null, res: Response) {
+    if (err) {
+        console.error(err);
+        return res.status(500).json({ error: 'Erro ao obter conexão do pool.' });
+    }
+}
 
 export { pool };
