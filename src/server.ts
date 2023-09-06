@@ -21,7 +21,7 @@ app.get('/', (req, res) => {
 
 app.use('/product', productRoutes);
 
-
-app.listen(4000, () => {
-    console.log('Servidor rodando na porta 4000');
+const port = 4000;
+app.listen(port, () => {
+    console.log('Servidor rodando na porta:' + port);
 });
