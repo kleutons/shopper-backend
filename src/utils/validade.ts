@@ -48,11 +48,11 @@ export function check_ValuesLine(newPrice: number, salesPrice:number, costPrice:
     let validationMessages: string[] = [];
 
     if(check_LowerCostPrice(costPrice, newPrice)){
-        validationMessages.push('Novo preço está abaixo do custo');
+        validationMessages.push('Novo preço abaixo do custo ('+costPrice+')');
     }
 
     if(check_PriceAdjustment(salesPrice, newPrice)){
-        validationMessages.push('Variação de preço limitada a +/-10%');
+        validationMessages.push('Variação ultrapassa +/-10% o preço atual');
     }
 
     return validationMessages.length > 0 ? validationMessages.join(', ') : null;
