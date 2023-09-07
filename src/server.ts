@@ -9,7 +9,8 @@ app.use(bodyParser.json());
 app.use((req, res, next) => {
     // Permite acesso de qualquer origem (não seguro somente para produção)
     res.header('Access-Control-Allow-Origin', '*'); 
-    // Outras configurações CORS podem ser adicionadas aqui, como Access-Control-Allow-Methods, Access-Control-Allow-Headers, etc.
+    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept'); 
+    res.header('Access-Control-Allow-Methods', 'POST, GET, PATCH, DELETE, OPTIONS'); 
     next();
 });
   
