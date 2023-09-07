@@ -1,3 +1,5 @@
+import { PackArray, TypeProductValidade } from "../types/products";
+
 const limitColumns = 2;
 function check_numberColumns(lineCsv: Array<number | string>): boolean {
     return lineCsv.length !== limitColumns;
@@ -71,4 +73,23 @@ function check_PriceAdjustment(price: number, newPrice: number): boolean {
 
     // O reajuste está dentro do limite de +/-10%
     return newPrice < lowPrice || newPrice > bigPrice;
+}
+
+
+export function check_ComponentsKit(listPacks: PackArray[], listProducts: TypeProductValidade[]): TypeProductValidade[]{
+    listPacks.forEach((pack: PackArray) => {
+        for (const key in pack) {
+        
+            const existsInProductsValidade = pack[key].some((element) =>
+                listProducts.some((obj) => obj.code === element)
+            );
+
+            const produto = listProducts.find(item => item.code === Number(key));
+            if (!existsInProductsValidade && produto) {
+                produto.returnError += ", CSV não contém os novos preços do componentes desse kit";
+            }
+        }
+    });
+
+    return listProducts;
 }

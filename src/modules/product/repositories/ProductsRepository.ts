@@ -1,12 +1,12 @@
 import { Request, Response } from 'express';
 import { handleDatabaseError, pool } from '../../../mysql';
-import { EnumTypeProduct, IdProductsRequest, TypePack, TypeProduct, TypeProductValidade } from '../../../types/products';
+import { EnumTypeProduct, IdProductsRequest, PackArray, TypePack, TypeProduct, TypeProductValidade } from '../../../types/products';
 import { PoolConnection, QueryError, FieldPacket, RowDataPacket } from 'mysql2';
 import { Readable }  from "stream";
 import readline from "readline";
 import { convertDBPacks, convertDBProducts } from '../../../utils/utils';
 import multer from 'multer';
-import { check_HeaderLine, check_ValuesIsValid, check_ValuesLine } from '../../../utils/validade';
+import { check_ComponentsKit, check_HeaderLine, check_ValuesIsValid, check_ValuesLine } from '../../../utils/validade';
 const upload = multer();
 
 class ProductRepository {
@@ -160,8 +160,6 @@ class ProductRepository {
                         }
     
                         products = resultQuery.map(convertDBProducts);
-                        console.log('products: ', products);
-    
                         resolve(products); // Resolver a Promise com os produtos encontrados
                     }
                 );
@@ -188,6 +186,7 @@ class ProductRepository {
         })
 
         const productsValidade: TypeProductValidade[] = [];
+        const productsPacks: PackArray[] = [];
 
         let headerLine = true;
         for await (let line of csv) {
@@ -233,11 +232,22 @@ class ProductRepository {
 
                         const selectProductPack = await this.listPackIDProducts(codeProduct);
                         
-                        const arrayDeProductIds = selectProductPack?.map(item => item.product_id);
-
-                        console.log('aqui 2222222222222222222');
-                        console.log(selectProductPack);
-                        console.log(arrayDeProductIds);
+                        // Se o produto é um kit - armazena os dados
+                        if(selectProductPack){
+                            const packIdToProductIds: PackArray = {};
+                            selectProductPack.forEach(item => {
+                            const { pack_id, product_id } = item;
+                            if (packIdToProductIds[pack_id]) {
+                                packIdToProductIds[pack_id].push(product_id);
+                            } else {
+                                packIdToProductIds[pack_id] = [product_id];
+                            }
+                            });
+    
+                            //guarda produtos que são kits
+                            productsPacks.push(packIdToProductIds);
+                        }
+                        
                         
 
                         const commonProductData = {
@@ -274,7 +284,10 @@ class ProductRepository {
                 
              }
         }
-        res.status(200).json(productsValidade);
+
+        const check_Kits = check_ComponentsKit(productsPacks, productsValidade);
+        
+        res.status(200).json(check_Kits);
     }
 
 

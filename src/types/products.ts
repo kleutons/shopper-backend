@@ -40,3 +40,7 @@ export type TypePack = {
   sales_price?: number;
   name?: string;
 }
+
+export type PackArray = {
+  [key: number]: number[];
+}
