@@ -1,12 +1,12 @@
 import { Request, Response } from 'express';
 import { handleDatabaseError, pool } from '../../../mysql';
-import { IdProductsRequest, TypeProduct, TypeProductCSV, TypeProductNewPrice } from '../../../types/products';
+import { IdProductsRequest, TypeProduct, TypeProductValidade } from '../../../types/products';
 import { PoolConnection, QueryError, FieldPacket, RowDataPacket } from 'mysql2';
 import { Readable }  from "stream";
 import readline from "readline";
-import { converDBValuesToNumbers, mergeArrays } from '../../../utils/utils';
+import { convertDBValuesToNumbers} from '../../../utils/utils';
 import multer from 'multer';
-import { check_LowerCostPrice, check_PriceAdjustment } from '../../../utils/validade';
+import { check_HeaderLine, check_ValuesIsValid, check_ValuesLine } from '../../../utils/validade';
 const upload = multer();
 
 class ProductRepository {
@@ -26,7 +26,7 @@ class ProductRepository {
                         console.log(errorQuery);
                         return res.status(400).json({error: 'Erro ao consultar base de dados!'});
                     }
-                    const products: TypeProduct[] = resultQuery.map(converDBValuesToNumbers);
+                    const products: TypeProduct[] = resultQuery.map(convertDBValuesToNumbers);
                     res.status(200).json(products);
                 }
             )
@@ -50,46 +50,49 @@ class ProductRepository {
                         console.log(errorQuery);
                         return res.status(400).json({error: 'Erro ao consultar base de dados!'});
                     }
-                    const products: TypeProduct[] = resultQuery.map(converDBValuesToNumbers);
+                    const products: TypeProduct[] = resultQuery.map(convertDBValuesToNumbers);
                     res.status(200).json(products);
                 }
             )
         })
     }
-
-    // listById(req: Request, res: Response) {
     
-    //     const { id } = req.body;
-    //     var idsArray = id.split(',');
-    //     for (var i = 0; i < idsArray.length; i++) {
-    //         idsArray[i] = parseInt(idsArray[i].trim());
-    //     }
 
-    //     pool.getConnection((err:NodeJS.ErrnoException | null, connection: PoolConnection | undefined) =>{
-    //         //Retorna se tiver erro ao conectar na poll
-    //         handleDatabaseError(err, res); 
-
-    //         const query = 'SELECT * FROM products WHERE code IN (?)';
-
-    //         connection!.query( 
-    //             query,
-    //             [idsArray],
-    //             (errorQuery:  QueryError | null, resultQuery: RowDataPacket[], filedsQuery: FieldPacket[]) => {
-    //                 //encerrar connection 
-    //                 connection!.release();
-                    
-    //                 if(errorQuery){
-    //                     console.log(errorQuery);
-    //                     return res.status(400).json({error: 'Erro ao consultar base de dados!'});
-    //                 }
-                    
-    //                 const products: TypeProduct[] = resultQuery.map(converDBValuesToNumbers);
-    //                 res.status(200).json(products);
-    //             }
-    //         )
-    //     })
-    // }
-
+    async selectProductCode(codeProduct: number): Promise<TypeProduct | null> {
+        return new Promise((resolve, reject) => {
+            pool.getConnection((err: NodeJS.ErrnoException | null, connection: PoolConnection | undefined) => {
+                if (err) {
+                    // Retornar um erro caso haja problemas com a conexão
+                    reject(err);
+                    return;
+                }
+                
+                
+                const query = 'SELECT * FROM products WHERE code = ?';
+    
+                connection!.query(
+                    query,
+                    codeProduct,
+                    (errorQuery: QueryError | null, resultQuery: RowDataPacket[], filedsQuery: FieldPacket[]) => {
+                        connection!.release();
+    
+                        if (errorQuery) {
+                            
+                            reject(errorQuery); // Rejeitar a Promise em caso de erro na consulta
+                            return;
+                        }
+    
+                        if (resultQuery.length === 0) {
+                            resolve(null); // Não há resultados, então retornamos null
+                        } else {
+                            const product = convertDBValuesToNumbers(resultQuery[0]);
+                            resolve(product); // Resolver a Promise com o produto encontrado
+                        }
+                    }
+                );
+            });
+        });
+    }
 
     async listByCodeProduct(codeProducts: string): Promise<TypeProduct[] > {
         return new Promise((resolve, reject) => {
@@ -120,7 +123,7 @@ class ProductRepository {
                             return;
                         }
     
-                        products = resultQuery.map(converDBValuesToNumbers);
+                        products = resultQuery.map(convertDBValuesToNumbers);
                         console.log('products: ', products);
     
                         resolve(products); // Resolver a Promise com os produtos encontrados
@@ -132,66 +135,102 @@ class ProductRepository {
     
 
     async bulkUpdateCSV(req: Request, res: Response) {
-
         const fileCSV = req.file;
-  
         if(!fileCSV){
            return res.status(404).json({ error: 'Nenhum arquivo foi enviado.'})
         }else
         if(fileCSV.mimetype !== 'text/csv'){
            return res.status(404).json({ error: 'Arquivo Enviado nao é um CSV.'})
         }
-        
+
         const readableFile = new Readable();
         readableFile.push(fileCSV.buffer); 
         readableFile.push(null);
-     
-        const productsLine = readline.createInterface({
+
+        const csv = readline.createInterface({
            input: readableFile
         })
-     
-        const productsCSV: TypeProductCSV[] = [];
-        let firstLine = true;
-     
-        for await(let line of productsLine){
-           const lineCsv = line.split(',');
-           if(firstLine){
-              firstLine = false;
-           }else{
-              productsCSV.push({
-                 code: Number(lineCsv[0]),
-                 new_price: Number(lineCsv[1])
-              })
-           }
+
+        const productsValidade: TypeProductValidade[] = [];
+
+        let headerLine = true;
+        for await (let line of csv) {
+            let validationMessages: string[] = [];
+
+            // Ignorar linhas vazias
+            if (line.trim() === '' || line.trim() === ';') {
+                continue;
+            }
+            
+            // console.log('Linha lida:', line); 
+            const lineCsv = line.split(',');
+
+             if (headerLine){
+                headerLine = false;
+                const errorHeader = check_HeaderLine(lineCsv);
+                if(errorHeader){
+                    return res.status(404).json({ error: errorHeader});
+                }
+             }else{
+                
+                //valida se dados preenchidos no csv estão corretos, 
+                const validLine = check_ValuesIsValid(lineCsv);
+                if(validLine){
+
+                    productsValidade.push({
+                        code: Number(lineCsv[0]),
+                        name: 'não encontrado',
+                        cost_price: 0,
+                        sales_price: 0,
+                        new_price: Number(lineCsv[1]),
+                        isValidade: false,
+                        errorValidade: validLine
+                    });
+                }else{
+
+                    const codeProduct = Number(lineCsv[0]);
+                    const newPrice = Number(lineCsv[1]);
+  
+
+                    try {
+                        const selectProduct = await this.selectProductCode(codeProduct);
+
+                        const commonProductData = {
+                            code: selectProduct ? selectProduct.code : codeProduct,
+                            name: selectProduct ? selectProduct.name : 'não encontrado',
+                            cost_price: selectProduct ? selectProduct.cost_price : 0,
+                            sales_price: selectProduct ? selectProduct.sales_price : 0,
+                            new_price: newPrice,
+                            isValidade: validationMessages.length !== 0,
+                            errorValidade: validationMessages.length > 0 ? validationMessages.join(', ') : 'Produto Não Encontrado',
+                        };
+
+                        if (selectProduct) {
+                            const cost_Price = selectProduct.cost_price;
+                            const sales_Price = selectProduct.sales_price;
+                            const validValuesLine = check_ValuesLine(newPrice, sales_Price, cost_Price);
+                    
+                            if (validValuesLine){
+                                // Lógica para lidar com erros de validação 
+                                commonProductData.errorValidade = validValuesLine;
+                            }
+                        }
+
+                        productsValidade.push(commonProductData);
+                    
+                    } catch (error) {                        
+                        res.status(404).json({error: 'Ocorreu um erro ao selecionar o produto:' + error});
+                        return;
+                    }
+
+                }
+                
+             }
         }
-        const codeArray = productsCSV.map(item => item.code);
-        const codeSelect = codeArray.join(', ');
-        const selectPrducts = await this.listByCodeProduct(codeSelect);
-        const productsNewsPrice: TypeProductNewPrice[] = mergeArrays(selectPrducts, productsCSV);
-        
-        
-
-        // Percorre o array de produtos para as validações
-        productsNewsPrice.map(item => {
-            if(check_LowerCostPrice(item.cost_price, item.new_price)){
-                console.log('LowerCostPrice True');
-            }else{
-                console.log('LowerCostPrice False');
-            }
-
-            if(check_PriceAdjustment(item.sales_price, item.new_price)){
-                console.log('PriceAdjustment True');
-            }else{
-                console.log('PriceAdjustment False');
-            }
-        })
-      
-        
-        
-
-        res.status(200).json(productsNewsPrice);
-
+        res.status(200).json(productsValidade);
     }
+
+
 }
 
 export { ProductRepository }

@@ -17,3 +17,9 @@ export type TypeProductCSV = {
 export interface TypeProductNewPrice extends TypeProduct {
   new_price: number;
 }
+
+export interface TypeProductValidade extends TypeProduct {
+  new_price: number;
+  isValidade: boolean;
+  errorValidade?: string;
+}
