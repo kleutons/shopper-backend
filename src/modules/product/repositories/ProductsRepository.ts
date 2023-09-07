@@ -1,10 +1,10 @@
 import { Request, Response } from 'express';
 import { handleDatabaseError, pool } from '../../../mysql';
-import { IdProductsRequest, TypeProduct, TypeProductValidade } from '../../../types/products';
+import { EnumTypeProduct, IdProductsRequest, TypePack, TypeProduct, TypeProductValidade } from '../../../types/products';
 import { PoolConnection, QueryError, FieldPacket, RowDataPacket } from 'mysql2';
 import { Readable }  from "stream";
 import readline from "readline";
-import { convertDBValuesToNumbers} from '../../../utils/utils';
+import { convertDBPacks, convertDBProducts } from '../../../utils/utils';
 import multer from 'multer';
 import { check_HeaderLine, check_ValuesIsValid, check_ValuesLine } from '../../../utils/validade';
 const upload = multer();
@@ -26,7 +26,8 @@ class ProductRepository {
                         console.log(errorQuery);
                         return res.status(400).json({error: 'Erro ao consultar base de dados!'});
                     }
-                    const products: TypeProduct[] = resultQuery.map(convertDBValuesToNumbers);
+                    // Convert para exibir numeros decimais com Number
+                    const products: TypeProduct[] = resultQuery.map(convertDBProducts);
                     res.status(200).json(products);
                 }
             )
@@ -39,7 +40,7 @@ class ProductRepository {
             //Retorna se tiver erro ao conectar na poll
             handleDatabaseError(err, res); 
 
-            const query = 'SELECT * FROM products WHERE code IN (SELECT DISTINCT pack_id FROM packs)';
+            const query = 'SELECT p.* FROM products p INNER JOIN packs pk ON p.code = pk.pack_id';
 
             connection!.query(query,
                 (errorQuery:  QueryError | null, resultQuery: any, filedsQuery: FieldPacket[]) => {
@@ -50,11 +51,46 @@ class ProductRepository {
                         console.log(errorQuery);
                         return res.status(400).json({error: 'Erro ao consultar base de dados!'});
                     }
-                    const products: TypeProduct[] = resultQuery.map(convertDBValuesToNumbers);
+                    // Convert para exibir numeros decimais com Number
+                    const products: TypeProduct[] = resultQuery.map(convertDBProducts);
                     res.status(200).json(products);
                 }
             )
         })
+    }
+
+    async listPackIDProducts(idPack: number): Promise<TypePack[] | null> {
+        return new Promise((resolve, reject) => {
+            pool.getConnection((err: NodeJS.ErrnoException | null, connection: PoolConnection | undefined) => {
+                if (err) {
+                    // Retornar um erro caso haja problemas com a conexão
+                    reject(err);
+                    return;
+                }
+                const query = 'SELECT pk.pack_id, pk.product_id, pk.qty, p.cost_price, p.sales_price, p.name FROM packs pk INNER JOIN products p ON p.code = pk.product_id WHERE pack_id = ?';
+                connection!.query(
+                    query,
+                    idPack,
+                    (errorQuery: QueryError | null, resultQuery: RowDataPacket[], filedsQuery: FieldPacket[]) => {
+                        connection!.release();
+    
+                        if (errorQuery) {
+                            
+                            reject(errorQuery);
+                            return;
+                        }
+    
+                        if (resultQuery.length === 0) {
+                            resolve(null);
+                        } else {
+                            // Convert para exibir numeros decimais com Number
+                            const product = resultQuery.map(convertDBPacks);
+                            resolve(product);
+                        }
+                    }
+                );
+            });
+        });
     }
     
 
@@ -68,7 +104,7 @@ class ProductRepository {
                 }
                 
                 
-                const query = 'SELECT * FROM products WHERE code = ?';
+                const query = 'SELECT p.*, (pk.product_id IS NOT NULL) AS kit_status FROM products p LEFT JOIN packs pk ON p.code = pk.product_id WHERE p.code = ?';
     
                 connection!.query(
                     query,
@@ -85,7 +121,7 @@ class ProductRepository {
                         if (resultQuery.length === 0) {
                             resolve(null); // Não há resultados, então retornamos null
                         } else {
-                            const product = convertDBValuesToNumbers(resultQuery[0]);
+                            const product = convertDBProducts(resultQuery[0]);
                             resolve(product); // Resolver a Promise com o produto encontrado
                         }
                     }
@@ -123,7 +159,7 @@ class ProductRepository {
                             return;
                         }
     
-                        products = resultQuery.map(convertDBValuesToNumbers);
+                        products = resultQuery.map(convertDBProducts);
                         console.log('products: ', products);
     
                         resolve(products); // Resolver a Promise com os produtos encontrados
@@ -155,8 +191,7 @@ class ProductRepository {
 
         let headerLine = true;
         for await (let line of csv) {
-            let validationMessages: string[] = [];
-
+            
             // Ignorar linhas vazias
             if (line.trim() === '' || line.trim() === ';') {
                 continue;
@@ -183,8 +218,9 @@ class ProductRepository {
                         cost_price: 0,
                         sales_price: 0,
                         new_price: Number(lineCsv[1]),
-                        isValidade: false,
-                        errorValidade: validLine
+                        typeProduct: EnumTypeProduct.UNIQUE,
+                        isError: true,
+                        returnError: validLine
                     });
                 }else{
 
@@ -195,14 +231,24 @@ class ProductRepository {
                     try {
                         const selectProduct = await this.selectProductCode(codeProduct);
 
+                        const selectProductPack = await this.listPackIDProducts(codeProduct);
+                        
+                        const arrayDeProductIds = selectProductPack?.map(item => item.product_id);
+
+                        console.log('aqui 2222222222222222222');
+                        console.log(selectProductPack);
+                        console.log(arrayDeProductIds);
+                        
+
                         const commonProductData = {
                             code: selectProduct ? selectProduct.code : codeProduct,
-                            name: selectProduct ? selectProduct.name : 'não encontrado',
+                            name: selectProduct ? selectProduct.name : 'Não encontrado',
                             cost_price: selectProduct ? selectProduct.cost_price : 0,
                             sales_price: selectProduct ? selectProduct.sales_price : 0,
                             new_price: newPrice,
-                            isValidade: validationMessages.length !== 0,
-                            errorValidade: validationMessages.length > 0 ? validationMessages.join(', ') : 'Produto Não Encontrado',
+                            typeProduct: selectProductPack ? EnumTypeProduct.KIT : selectProduct?.kit_status ? EnumTypeProduct.ComposeKit : EnumTypeProduct.UNIQUE,
+                            isError: selectProduct ? false : true,
+                            returnError: selectProduct ? '' : 'Produto Não Encontrado',
                         };
 
                         if (selectProduct) {
@@ -212,7 +258,8 @@ class ProductRepository {
                     
                             if (validValuesLine){
                                 // Lógica para lidar com erros de validação 
-                                commonProductData.errorValidade = validValuesLine;
+                                commonProductData.isError = true;
+                                commonProductData.returnError = validValuesLine;
                             }
                         }
 
