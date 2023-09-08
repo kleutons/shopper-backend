@@ -23,7 +23,7 @@ productRoutes.post('/validade-csv',
                   multerConfig.single("file"),
                   async (req: Request, res: Response) => {
    
-   productRepository.postCSV(req, res);
+   productRepository.postValidadeCSV(req, res);
 });
 
 productRoutes.post('/bulk-update',

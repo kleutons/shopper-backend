@@ -52,3 +52,8 @@ export interface TypePackValidade extends TypePack {
 export type PackArray = {
   [key: number]: number[];
 }
+
+export type TypeUpdateDB = {
+  code: number;
+  new_price: number;
+}

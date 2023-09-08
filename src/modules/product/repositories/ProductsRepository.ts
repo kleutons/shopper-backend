@@ -1,12 +1,12 @@
 import { Request, Response } from 'express';
 import { handleDatabaseError, pool } from '../../../mysql';
-import { ComposeKit, EnumTypeProduct, IdProductsRequest, PackArray, TypePack, TypeProduct, TypeProductValidade } from '../../../types/products';
+import { IdProductsRequest, TypePack, TypeProduct, TypeUpdateDB } from '../../../types/products';
 import { PoolConnection, QueryError, FieldPacket, RowDataPacket } from 'mysql2';
 import { Readable }  from "stream";
 import readline from "readline";
 import { convertDBPacks, convertDBProducts } from '../../../utils/utils';
 import multer from 'multer';
-import { check_HeaderLine, check_SumKitAndPackExist, check_ValuesIsValid, check_ValuesLine } from '../../../utils/validade';
+
 import { validadeCVS } from './ValidadeCSV';
 const upload = multer();
 
@@ -170,7 +170,7 @@ class ProductRepository {
     }
     
 
-    async postCSV(req: Request, res: Response) {
+    async postValidadeCSV(req: Request, res: Response) {
         const fileCSV = req.file;
         if(!fileCSV){
            return res.status(404).json({ error: 'Nenhum arquivo foi enviado.'})
@@ -228,7 +228,31 @@ class ProductRepository {
             if(resultado){
                 //CSV é Valido, presseguir
                 if(!resultado.isValidade){
-                    res.status(200).json(resultado.response);
+                   
+
+                    if(resultado.response){
+                        const updateDB = resultado.response.map((item:TypeUpdateDB):TypeUpdateDB=>{ 
+                            return {
+                                code: item.code,
+                                new_price: item.new_price
+                            };
+                            
+                        });
+
+                        
+                        this.bulkUpdateDB(updateDB)
+                        .then((result) => {
+                            console.log('Atualização realizada com sucesso!', result);
+                            res.status(200).json({ data: 'Atualização realizada com sucesso!'});
+                        })
+                        .catch((error) => {
+                            console.error('Erro ao realizar atulização!', error);
+                            res.status(404).json({ error: 'Erro ao realizar atulização!'});
+                        });
+                    }
+
+                    
+
                 }else{
                     res.status(404).json({error: resultado.msgError});
                 }
@@ -240,6 +264,61 @@ class ProductRepository {
         });
         
     }
+    
+    async bulkUpdateDB(updateDB:TypeUpdateDB[]) {
+        return new Promise((resolve, reject) => {
+          pool.getConnection((err, connection) => {
+            if (err) {
+              reject(err);
+              return;
+            }
+      
+            // Iniciar uma transação para garantir que todas as atualizações sejam bem-sucedidas ou nenhuma seja realizada
+            connection.beginTransaction((beginErr) => {
+              if (beginErr) {
+                connection.release();
+                reject(beginErr);
+                return;
+              }
+      
+              // Eecutar as atualizações para cada elemento
+              for (const item of updateDB) {
+                const { code, new_price } = item;
+      
+                const query = 'UPDATE products SET sales_price = ? WHERE code = ?';
+                connection.query(
+                  query,
+                  [new_price, code],
+                  (errorQuery, resultQuery) => {
+                    if (errorQuery) {
+                      connection.rollback(() => {
+                        connection.release();
+                        reject(errorQuery);
+                      });
+                      return;
+                    }
+                  }
+                );
+              }
+      
+              // Commit da transação se todas as atualizações forem bem-sucedidas
+              connection.commit((commitErr) => {
+                if (commitErr) {
+                  connection.rollback(() => {
+                    connection.release();
+                    reject(commitErr);
+                  });
+                  return;
+                }
+      
+                connection.release();
+                resolve(true); // Resolver a Promise com sucesso
+              });
+            });
+          });
+        });
+    }
+
 
 
 }
