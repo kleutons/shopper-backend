@@ -19,12 +19,20 @@ productRoutes.get('/list-pack', (req, res) => {
 //    productRepository.listById(req, res);
 // });
 
+productRoutes.post('/validade-csv',
+                  multerConfig.single("file"),
+                  async (req: Request, res: Response) => {
+   
+   productRepository.postCSV(req, res);
+});
+
 productRoutes.post('/bulk-update',
                   multerConfig.single("file"),
                   async (req: Request, res: Response) => {
    
    productRepository.bulkUpdateCSV(req, res);
 });
- 
+
+
 
 export { productRoutes };

@@ -7,6 +7,7 @@ import readline from "readline";
 import { convertDBPacks, convertDBProducts } from '../../../utils/utils';
 import multer from 'multer';
 import { check_HeaderLine, check_SumKitAndPackExist, check_ValuesIsValid, check_ValuesLine } from '../../../utils/validade';
+import { validadeCVS } from './ValidadeCSV';
 const upload = multer();
 
 class ProductRepository {
@@ -169,6 +170,40 @@ class ProductRepository {
     }
     
 
+    async postCSV(req: Request, res: Response) {
+        const fileCSV = req.file;
+        if(!fileCSV){
+           return res.status(404).json({ error: 'Nenhum arquivo foi enviado.'})
+        }else
+        if(fileCSV.mimetype !== 'text/csv'){
+           return res.status(404).json({ error: 'Arquivo Enviado nao é um CSV.'})
+        }
+
+        const readableFile = new Readable();
+        readableFile.push(fileCSV.buffer); 
+        readableFile.push(null);
+
+        const csv = readline.createInterface({
+           input: readableFile
+        })
+
+
+        
+        validadeCVS(csv)
+        .then((resultado) => {
+            if(resultado){
+
+                res.status(200).json(resultado.response);
+            }
+        })
+        .catch((error) => {
+          console.error(error);
+          res.status(404).json({eroor: 'Erro ao validar CSV'});
+        });
+        
+    }
+
+
     async bulkUpdateCSV(req: Request, res: Response) {
         const fileCSV = req.file;
         if(!fileCSV){
@@ -186,141 +221,24 @@ class ProductRepository {
            input: readableFile
         })
 
-        const productsValidade: TypeProductValidade[] = [];
-        const productsPacks: TypePack[] = [];
 
-        let headerLine = true;
-        for await (let line of csv) {
-            
-            // Ignorar linhas vazias
-            if (line.trim() === '' || line.trim() === ';') {
-                continue;
-            }
-            
-            // console.log('Linha lida:', line); 
-            const lineCsv = line.split(',');
-
-             if (headerLine){
-                headerLine = false;
-                const errorHeader = check_HeaderLine(lineCsv);
-                if(errorHeader){
-                    return res.status(404).json({ error: errorHeader});
-                }
-             }else{
-                
-                //valida se dados preenchidos no csv estão corretos, 
-                const validLine = check_ValuesIsValid(lineCsv);
-                if(validLine){
-
-                    productsValidade.push({
-                        code: Number(lineCsv[0]),
-                        name: 'não encontrado',
-                        cost_price: 0,
-                        sales_price: 0,
-                        new_price: Number(lineCsv[1]),
-                        typeProduct: EnumTypeProduct.UNIQUE,
-                        composeKit: null,
-                        isError: true,
-                        returnError: validLine
-                    });
+        
+        validadeCVS(csv)
+        .then((resultado) => {
+            if(resultado){
+                //CSV é Valido, presseguir
+                if(!resultado.isValidade){
+                    res.status(200).json(resultado.response);
                 }else{
-
-                    const codeProduct = Number(lineCsv[0]);
-                    const newPrice = Number(lineCsv[1]);
-  
-
-                    try {
-                        const selectProduct = await this.selectProductCode(codeProduct);
-
-                        const selectProductPack = await this.listPackIDProducts(codeProduct);
-                        
-                        // Se o produto é um kit - armazena os dados
-                        const packComposeKit: ComposeKit[] = [];
-                        if(selectProductPack){
-                            selectProductPack.forEach((item) => {
-                                const generateKit: ComposeKit = {
-                                    idProduct: item.product_id,
-                                    qty: item.qty
-                                }
-                                packComposeKit.push(generateKit);
-                            });
-                        }
-                        
-                        
-
-                        const commonProductData = {
-                            code: selectProduct ? selectProduct.code : codeProduct,
-                            name: selectProduct ? selectProduct.name : 'Não encontrado',
-                            cost_price: selectProduct ? selectProduct.cost_price : 0,
-                            sales_price: selectProduct ? selectProduct.sales_price : 0,
-                            new_price: newPrice,
-                            typeProduct: selectProductPack ? EnumTypeProduct.KIT : selectProduct?.kit_status ? EnumTypeProduct.ComposeKit : EnumTypeProduct.UNIQUE,
-                            composeKit: selectProductPack ? packComposeKit : null,
-                            isError: selectProduct ? false : true,
-                            returnError: selectProduct ? '' : 'Produto Não Encontrado',
-                        };
-
-                        if (selectProduct) {
-                            const cost_Price = selectProduct.cost_price;
-                            const sales_Price = selectProduct.sales_price;
-                            const validValuesLine = check_ValuesLine(newPrice, sales_Price, cost_Price);
-                    
-                            if (validValuesLine){
-                                // Lógica para lidar com erros de validação 
-                                commonProductData.isError = true;
-                                commonProductData.returnError = validValuesLine;
-                            }
-                        }
-
-                        productsValidade.push(commonProductData);
-                    
-                    } catch (error) {                        
-                        res.status(404).json({error: 'Ocorreu um erro ao selecionar o produto:' + error});
-                        return;
-                    }
-
+                    res.status(404).json({error: resultado.msgError});
                 }
-                
-             }
-        }
-
-        
-
-        // Valida e Todosos Produtos do Kit e Soma o Total do Kit
-        productsValidade.forEach((itemKit: TypeProductValidade) =>{
-            
-            let existProductKit = false;
-            if(itemKit.composeKit){
-                const codProdct = itemKit.code
-                
-              let sumNewPrice = 0;
-              itemKit.composeKit.forEach((component) => {
-                    const produtoKit = productsValidade.find(itemF => itemF.code === component.idProduct);
-                    if (produtoKit) {
-                        console.log(produtoKit.code);
-                        existProductKit = true;
-                        sumNewPrice += component.qty * produtoKit.new_price
-                    }else{
-                        existProductKit = false;
-                    }
-                });
-              const resultSum = Number(sumNewPrice.toFixed(2));
-   
-              //busca produto para edição do erro
-              const produtoError = productsValidade.find(item => item.code === codProdct);
-              //Existe todos os produtos?
-              if(!existProductKit && produtoError){
-                produtoError.returnError += ", CSV não contém os novos preços do componentes desse kit";
-              }else
-              if(existProductKit && itemKit.new_price !== resultSum && produtoError){
-                 produtoError.returnError += ", A soma dos preços dos Componetes desse Kit está incorreta: ("+resultSum+")";
-              }
-
             }
-            
         })
+        .catch((error) => {
+          console.error(error);
+          res.status(404).json({eroor: 'Erro ao validar CSV'});
+        });
         
-        res.status(200).json(productsValidade);
     }
 
 
