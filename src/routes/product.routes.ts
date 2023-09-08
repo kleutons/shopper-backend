@@ -15,10 +15,6 @@ productRoutes.get('/list-pack', (req, res) => {
     productRepository.listPack(req, res);
  });
 
-// productRoutes.post('/list', (req, res) => {
-//    productRepository.listById(req, res);
-// });
-
 productRoutes.post('/validade-csv',
                   multerConfig.single("file"),
                   async (req: Request, res: Response) => {
