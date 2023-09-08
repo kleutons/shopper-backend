@@ -292,7 +292,7 @@ class ProductRepository {
             let existProductKit = false;
             if(itemKit.composeKit){
                 const codProdct = itemKit.code
-                console.log('Code: ' + codProdct);
+                
               let sumNewPrice = 0;
               itemKit.composeKit.forEach((component) => {
                     const produtoKit = productsValidade.find(itemF => itemF.code === component.idProduct);
@@ -304,12 +304,8 @@ class ProductRepository {
                         existProductKit = false;
                     }
                 });
-              console.log('existProductKit: '+existProductKit);
               const resultSum = Number(sumNewPrice.toFixed(2));
-              console.log(resultSum);
-              console.log(itemKit.new_price);
-              console.log(itemKit.new_price == resultSum);
-              
+   
               //busca produto para edição do erro
               const produtoError = productsValidade.find(item => item.code === codProdct);
               //Existe todos os produtos?
