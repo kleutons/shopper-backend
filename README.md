@@ -59,14 +59,16 @@ http://localhost:4000/
 - http://localhost:4000/bulk-update  => Rota POST para recever upload de arquivo CSV e se for válido atuliza em massa no banco de dados
 
 5. Arquivo DATABASE para enviar no servidor mysql, está na pasta /database
+
 [database.sql](./database/database.sql)
 
 6. Arquivo para testes CSV para testar upload no servidor, está na pasta /database
+
 [atualizacao_preco_exemplo.csv](./database/atualizacao_preco_exemplo.csv)
 
 
-### Servidor BackEnd
-Siga os passos descrito no Readme do repositório referente ao servidor backend: 
+### Para acessar site Fronteend
+Siga os passos descrito no Readme do repositório referente ao servidor frontend: 
 - https://github.com/kleutons/shopper-frontend
 
 ## 👨‍💻 Sobre Mim
