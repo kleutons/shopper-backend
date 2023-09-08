@@ -25,9 +25,16 @@ export enum EnumTypeProduct {
   ComposeKit = 'compõe um kit',
 };
 
+
+export type ComposeKit = {
+  idProduct: number;
+  qty: number;
+}
+
 export interface TypeProductValidade extends TypeProduct {
   new_price: number;
   typeProduct: EnumTypeProduct;
+  composeKit:ComposeKit[] | null;
   isError: boolean;
   returnError?: string;
 }
@@ -36,9 +43,10 @@ export type TypePack = {
   pack_id: number;
   product_id: number;
   qty: number;
-  cost_price: number;
-  sales_price?: number;
-  name?: string;
+}
+
+export interface TypePackValidade extends TypePack {
+  new_price: number;
 }
 
 export type PackArray = {

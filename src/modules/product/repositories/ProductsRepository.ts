@@ -1,12 +1,12 @@
 import { Request, Response } from 'express';
 import { handleDatabaseError, pool } from '../../../mysql';
-import { EnumTypeProduct, IdProductsRequest, PackArray, TypePack, TypeProduct, TypeProductValidade } from '../../../types/products';
+import { ComposeKit, EnumTypeProduct, IdProductsRequest, PackArray, TypePack, TypeProduct, TypeProductValidade } from '../../../types/products';
 import { PoolConnection, QueryError, FieldPacket, RowDataPacket } from 'mysql2';
 import { Readable }  from "stream";
 import readline from "readline";
 import { convertDBPacks, convertDBProducts } from '../../../utils/utils';
 import multer from 'multer';
-import { check_ComponentsKit, check_HeaderLine, check_ValuesIsValid, check_ValuesLine } from '../../../utils/validade';
+import { check_HeaderLine, check_SumKitAndPackExist, check_ValuesIsValid, check_ValuesLine } from '../../../utils/validade';
 const upload = multer();
 
 class ProductRepository {
@@ -67,7 +67,7 @@ class ProductRepository {
                     reject(err);
                     return;
                 }
-                const query = 'SELECT pk.pack_id, pk.product_id, pk.qty, p.cost_price, p.sales_price, p.name FROM packs pk INNER JOIN products p ON p.code = pk.product_id WHERE pack_id = ?';
+                const query = 'SELECT pk.pack_id, pk.product_id, pk.qty FROM packs pk INNER JOIN products p ON p.code = pk.product_id WHERE pack_id = ?';
                 connection!.query(
                     query,
                     idPack,
@@ -160,6 +160,7 @@ class ProductRepository {
                         }
     
                         products = resultQuery.map(convertDBProducts);
+                
                         resolve(products); // Resolver a Promise com os produtos encontrados
                     }
                 );
@@ -186,7 +187,7 @@ class ProductRepository {
         })
 
         const productsValidade: TypeProductValidade[] = [];
-        const productsPacks: PackArray[] = [];
+        const productsPacks: TypePack[] = [];
 
         let headerLine = true;
         for await (let line of csv) {
@@ -218,6 +219,7 @@ class ProductRepository {
                         sales_price: 0,
                         new_price: Number(lineCsv[1]),
                         typeProduct: EnumTypeProduct.UNIQUE,
+                        composeKit: null,
                         isError: true,
                         returnError: validLine
                     });
@@ -233,19 +235,15 @@ class ProductRepository {
                         const selectProductPack = await this.listPackIDProducts(codeProduct);
                         
                         // Se o produto é um kit - armazena os dados
+                        const packComposeKit: ComposeKit[] = [];
                         if(selectProductPack){
-                            const packIdToProductIds: PackArray = {};
-                            selectProductPack.forEach(item => {
-                            const { pack_id, product_id } = item;
-                            if (packIdToProductIds[pack_id]) {
-                                packIdToProductIds[pack_id].push(product_id);
-                            } else {
-                                packIdToProductIds[pack_id] = [product_id];
-                            }
+                            selectProductPack.forEach((item) => {
+                                const generateKit: ComposeKit = {
+                                    idProduct: item.product_id,
+                                    qty: item.qty
+                                }
+                                packComposeKit.push(generateKit);
                             });
-    
-                            //guarda produtos que são kits
-                            productsPacks.push(packIdToProductIds);
                         }
                         
                         
@@ -257,6 +255,7 @@ class ProductRepository {
                             sales_price: selectProduct ? selectProduct.sales_price : 0,
                             new_price: newPrice,
                             typeProduct: selectProductPack ? EnumTypeProduct.KIT : selectProduct?.kit_status ? EnumTypeProduct.ComposeKit : EnumTypeProduct.UNIQUE,
+                            composeKit: selectProductPack ? packComposeKit : null,
                             isError: selectProduct ? false : true,
                             returnError: selectProduct ? '' : 'Produto Não Encontrado',
                         };
@@ -285,9 +284,47 @@ class ProductRepository {
              }
         }
 
-        const check_Kits = check_ComponentsKit(productsPacks, productsValidade);
         
-        res.status(200).json(check_Kits);
+
+        // Valida e Todosos Produtos do Kit e Soma o Total do Kit
+        productsValidade.forEach((itemKit: TypeProductValidade) =>{
+            
+            let existProductKit = false;
+            if(itemKit.composeKit){
+                const codProdct = itemKit.code
+                console.log('Code: ' + codProdct);
+              let sumNewPrice = 0;
+              itemKit.composeKit.forEach((component) => {
+                    const produtoKit = productsValidade.find(itemF => itemF.code === component.idProduct);
+                    if (produtoKit) {
+                        console.log(produtoKit.code);
+                        existProductKit = true;
+                        sumNewPrice += component.qty * produtoKit.new_price
+                    }else{
+                        existProductKit = false;
+                    }
+                });
+              console.log('existProductKit: '+existProductKit);
+              const resultSum = Number(sumNewPrice.toFixed(2));
+              console.log(resultSum);
+              console.log(itemKit.new_price);
+              console.log(itemKit.new_price == resultSum);
+              
+              //busca produto para edição do erro
+              const produtoError = productsValidade.find(item => item.code === codProdct);
+              //Existe todos os produtos?
+              if(!existProductKit && produtoError){
+                produtoError.returnError += ", CSV não contém os novos preços do componentes desse kit";
+              }else
+              if(existProductKit && itemKit.new_price !== resultSum && produtoError){
+                 produtoError.returnError += ", A soma dos preços dos Componetes desse Kit está incorreta: ("+resultSum+")";
+              }
+
+            }
+            
+        })
+        
+        res.status(200).json(productsValidade);
     }
 
 

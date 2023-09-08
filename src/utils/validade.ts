@@ -76,7 +76,7 @@ function check_PriceAdjustment(price: number, newPrice: number): boolean {
 }
 
 
-export function check_ComponentsKit(listPacks: PackArray[], listProducts: TypeProductValidade[]): TypeProductValidade[]{
+export function check_SumKitAndPackExist(listPacks: PackArray[], listProducts: TypeProductValidade[]): TypeProductValidade[]{
     listPacks.forEach((pack: PackArray) => {
         for (const key in pack) {
         
@@ -93,3 +93,4 @@ export function check_ComponentsKit(listPacks: PackArray[], listProducts: TypePr
 
     return listProducts;
 }
+
