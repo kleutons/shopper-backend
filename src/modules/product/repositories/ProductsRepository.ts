@@ -9,7 +9,7 @@ import multer from 'multer';
 
 import { validadeCVS } from './ValidadeCSV';
 const upload = multer();
-
+    
 class ProductRepository {
     listUnique(req: Request<{}, {}, IdProductsRequest>, res: Response) {
 
@@ -41,7 +41,7 @@ class ProductRepository {
             //Retorna se tiver erro ao conectar na poll
             handleDatabaseError(err, res); 
 
-            const query = 'SELECT p.* FROM products p INNER JOIN packs pk ON p.code = pk.pack_id';
+            const query = 'SELECT * FROM products WHERE code IN (SELECT DISTINCT pack_id FROM packs)';
 
             connection!.query(query,
                 (errorQuery:  QueryError | null, resultQuery: any, filedsQuery: FieldPacket[]) => {
@@ -172,34 +172,40 @@ class ProductRepository {
 
     async postValidadeCSV(req: Request, res: Response) {
         const fileCSV = req.file;
-        if(!fileCSV){
-           return res.status(404).json({ error: 'Nenhum arquivo foi enviado.'})
-        }else
-        if(fileCSV.mimetype !== 'text/csv'){
-           return res.status(404).json({ error: 'Arquivo Enviado nao é um CSV.'})
+
+        if(fileCSV === undefined) {
+            return res.status(400).json({ error: 'Nenhum arquivo foi enviado.'})
         }
 
-        const readableFile = new Readable();
-        readableFile.push(fileCSV.buffer); 
-        readableFile.push(null);
+        if(fileCSV.mimetype !== 'text/csv'){
+           return res.status(400).json({ error: 'Arquivo Enviado nao é um CSV.'})
+        }
 
-        const csv = readline.createInterface({
-           input: readableFile
-        })
+        if(fileCSV.mimetype === 'text/csv'){
+            
+            const readableFile = new Readable();
+            readableFile.push(fileCSV.buffer); 
+            readableFile.push(null);
+    
+            const csv = readline.createInterface({
+               input: readableFile
+            })
+    
+    
+            
+            validadeCVS(csv)
+            .then((resultado) => {
+                if(resultado){
+    
+                    res.status(200).json(resultado.response);
+                }
+            })
+            .catch((error) => {
+              console.error(error);
+              res.status(400).json({eroor: 'Erro ao validar CSV'});
+            });
+        }
 
-
-        
-        validadeCVS(csv)
-        .then((resultado) => {
-            if(resultado){
-
-                res.status(200).json(resultado.response);
-            }
-        })
-        .catch((error) => {
-          console.error(error);
-          res.status(404).json({eroor: 'Erro ao validar CSV'});
-        });
         
     }
 
@@ -207,10 +213,10 @@ class ProductRepository {
     async bulkUpdateCSV(req: Request, res: Response) {
         const fileCSV = req.file;
         if(!fileCSV){
-           return res.status(404).json({ error: 'Nenhum arquivo foi enviado.'})
+           return res.status(400).json({ error: 'Nenhum arquivo foi enviado.'})
         }else
         if(fileCSV.mimetype !== 'text/csv'){
-           return res.status(404).json({ error: 'Arquivo Enviado nao é um CSV.'})
+           return res.status(400).json({ error: 'Arquivo Enviado nao é um CSV.'})
         }
 
         const readableFile = new Readable();
@@ -247,20 +253,20 @@ class ProductRepository {
                         })
                         .catch((error) => {
                             console.error('Erro ao realizar atulização!', error);
-                            res.status(404).json({ error: 'Erro ao realizar atulização!'});
+                            res.status(400).json({ error: 'Erro ao realizar atulização!'});
                         });
                     }
 
                     
 
                 }else{
-                    res.status(404).json({error: resultado.msgError});
+                    res.status(400).json({error: resultado.msgError});
                 }
             }
         })
         .catch((error) => {
           console.error(error);
-          res.status(404).json({eroor: 'Erro ao validar CSV'});
+          res.status(400).json({eroor: 'Erro ao validar CSV'});
         });
         
     }
