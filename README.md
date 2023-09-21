@@ -1,5 +1,8 @@
 # 🚀 Desafio FullStak Shopper.com.br (Repositório BACKEND)
 
+## Versão 2 desse mesmo teste, melhorado: [Acesse](https://github.com/kleutons/shopper-backend-v2)
+https://github.com/kleutons/shopper-backend-v2
+
 Bem-vindo(a). Este é o desafio BACKEND, para a Shopper.com.br!
 O objetivo deste desafio é um teste técnico para avaliar habilidades em desenvolvimento de software.
 
