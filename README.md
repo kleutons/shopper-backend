@@ -18,16 +18,16 @@ Chegou a hora de colocar a mão na massa!
     - [x] Os códigos de produtos informados existem?
     - [x] Os preços estão preenchidos e são valores numéricos validos? 
     - [x] Os códigos de produtos informados existem?
-    - [x] Valida: Preço nao pode está abaixo do custo
+    - [x] Valida: Preço não pode estar abaixo do custo
     - [x] Valida: Reajuste maior ou menor do que 10%
-    - [x] Nova Reqra: Valida Tipo de produto, é unitário, é um kit, ou faz parte de um kit
+    - [x] Nova Regra: Valida Tipo de produto, é unitário, é um kit, ou faz parte de um kit
     - [x] Valida: Se é um Kit - o csv deve conter os reajustes dos preços dos componentes do pacote.
         - [x] Valida: verificar se preço final da soma dos componentes seja igual ao preço do pacote.
-- [x] Finalzar Validação: e exibir Codigo, Nome, Preço Atual, Novo Preço
+- [x] Finalizar Validação: e exibir Código, Nome, Preço Atual, Novo Preço
 - [x] Exibir ao lado de cada produto qual regra foi quebrada
-- [x] Habilitar botão ATUALIZAR, somente se todas as linhas estiver Validada
+- [x] Habilitar botão ATUALIZAR, somente se todas as linhas estiverem validadas
     - [x] Ao clica em ATUALIZAR, o sistema deve salvar o novo preço no banco de dados, com tela pronta para o envio de um novo arquivo. 
-    - [x] Nova Reqra: Valida Tipo de produto, é unitário, é um kit, ou faz parte de um kit
+    - [x] Nova Regra: Valida Tipo de produto, é unitário, é um kit, ou faz parte de um kit
     - [x] O preço de custo dos pacotes também deve ser atualizado como a soma dos custos dos seus componentes. 
 
 
@@ -56,10 +56,10 @@ http://localhost:4000/
 ```
 
 4. ROTAS disponiveis
-- http://localhost:4000/list-unique  => Rota GET para listar produtos unicos, que não fazem parte de uma kit
-- http://localhost:4000/list-pack    => Rota GET para listar produtos que é um kit de produtos
-- http://localhost:4000/validade-csv  => Rota POST para recever upload de arquivo CSV e retornar se está válido
-- http://localhost:4000/bulk-update  => Rota POST para recever upload de arquivo CSV e se for válido atuliza em massa no banco de dados
+- http://localhost:4000/list-unique  => Rota GET para listar produtos únicos, que não fazem parte de uma kit
+- http://localhost:4000/list-pack    => Rota GET para listar produtos que são kits de produtos
+- http://localhost:4000/validade-csv  => Rota POST para receber upload de arquivo CSV e retornar se está válido
+- http://localhost:4000/bulk-update  => Rota POST para receber upload de arquivo CSV e se for válido atualiza em massa no banco de dados
 
 5. Arquivo DATABASE para enviar no servidor mysql, está na pasta /database
 
@@ -82,4 +82,4 @@ Siga os passos descrito no Readme do repositório referente ao servidor frontend
 - [Portfólio](https://kleuton.dev)
 
 ###
-Estou ansioso para receber feedback e sugestões sobre esta solução.
+Aguardo seu feedback e sugestões sobre esta solução.
